@@ -2,7 +2,7 @@ package com.denisvengrin.slackgc.di
 
 import com.denisvengrin.slackgc.BuildConfig
 import com.denisvengrin.slackgc.network.SlackApi
-import com.denisvengrin.slackgc.prefs.SlackStorage
+import com.denisvengrin.slackgc.storage.SlackStorage
 import dagger.Module
 import dagger.Provides
 import okhttp3.OkHttpClient

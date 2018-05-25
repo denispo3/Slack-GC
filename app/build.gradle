@@ -28,32 +28,47 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.android.support:appcompat-v7:27.1.1'
-    implementation 'com.android.support:support-v4:27.1.1'
-    implementation 'com.android.support:design:27.1.1'
-    implementation 'com.android.support:recyclerview-v7:27.1.1'
 
-    implementation "android.arch.lifecycle:extensions:1.1.1"
-    kapt "android.arch.lifecycle:compiler:1.1.1"
-    implementation "android.arch.persistence.room:runtime:1.0.0"
-    implementation "android.arch.persistence.room:rxjava2:1.0.0"
-    kapt "android.arch.persistence.room:compiler:1.0.0"
+    def appcompat_version = "27.1.1"
+    implementation "com.android.support:appcompat-v7:$appcompat_version"
+    implementation "com.android.support:support-v4:$appcompat_version"
+    implementation "com.android.support:design:$appcompat_version"
+    implementation "com.android.support:recyclerview-v7:$appcompat_version"
 
+    def room_version = "1.1.0"
+    implementation "android.arch.persistence.room:runtime:$room_version"
+    implementation "android.arch.persistence.room:rxjava2:$room_version"
+    kapt "android.arch.persistence.room:compiler:$room_version"
+
+    def paging_version = "1.0.0"
+    implementation "android.arch.paging:runtime:$paging_version"
+    implementation "android.arch.paging:rxjava2:1.0.0-rc1"
+
+    def lifecycle_version = "1.1.1"
+    implementation "android.arch.lifecycle:extensions:$lifecycle_version"
+    kapt "android.arch.lifecycle:compiler:$lifecycle_version"
+
+    // Retrofit and OkHttp
     implementation 'com.squareup.retrofit2:retrofit:2.4.0'
     implementation 'com.squareup.retrofit2:converter-gson:2.4.0'
     implementation 'com.squareup.okhttp3:logging-interceptor:3.8.0'
     implementation 'com.squareup.retrofit2:adapter-rxjava2:2.3.0'
 
+    // RxJava 2
     implementation 'io.reactivex.rxjava2:rxjava:2.1.7'
     implementation 'io.reactivex.rxjava2:rxandroid:2.0.1'
 
+    // Dagger
     implementation 'com.google.dagger:dagger:2.14.1'
     kapt 'com.google.dagger:dagger-compiler:2.14.1'
 
-    implementation 'com.github.bumptech.glide:glide:4.7.1'
-    implementation 'com.github.bumptech.glide:annotations:4.7.1'
-    kapt 'com.github.bumptech.glide:compiler:4.7.1'
+    // Glide
+    def glide_version = "4.7.1"
+    implementation "com.github.bumptech.glide:glide:$glide_version"
+    implementation "com.github.bumptech.glide:annotations:$glide_version"
+    kapt "com.github.bumptech.glide:compiler:$glide_version"
 
+    // Test
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.1'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'

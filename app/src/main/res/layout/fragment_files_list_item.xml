@@ -5,7 +5,10 @@
     android:id="@+id/llRootContainer"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
+    android:layout_marginBottom="4dp"
+    android:layout_marginLeft="8dp"
+    android:layout_marginRight="8dp"
+    android:layout_marginTop="4dp"
     android:padding="8dp"
     tools:background="@drawable/background_with_round_corners">
 
@@ -27,6 +30,7 @@
         android:textColor="@android:color/primary_text_light"
         android:textSize="16sp"
         app:layout_constraintBottom_toTopOf="@+id/tvContent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/ivPicture"
         app:layout_constraintTop_toTopOf="parent"
         tools:text="Title" />
@@ -42,6 +46,7 @@
         android:textSize="14sp"
         android:textStyle="italic"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/ivPicture"
         app:layout_constraintTop_toBottomOf="@+id/tvTitle"
         tools:text="Content" />

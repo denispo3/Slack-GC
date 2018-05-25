@@ -17,4 +17,13 @@
     <string name="no_files">No files</string>
     <string name="remove_selected_files">Remove selected files</string>
     <string name="please_wait">Please wait…</string>
+    <string name="removal_completed">Removal completed</string>
+    <string name="apply_filter">Apply Filter:</string>
+    <string name="pdf_files">PDF files</string>
+    <string name="zip_files">Zip files</string>
+    <string name="google_docs">Google docs</string>
+    <string name="image_files">Image files</string>
+    <string name="posts">Posts</string>
+    <string name="snippets">Snippets</string>
+    <string name="filter">Filter</string>
 </resources>

@@ -1,4 +1,4 @@
-package com.denisvengrin.slackgc.prefs
+package com.denisvengrin.slackgc.storage
 
 import com.denisvengrin.slackgc.data.AuthResponse
 import com.denisvengrin.slackgc.db.AppDatabase
@@ -12,12 +12,10 @@ class SlackStorage(private val db: AppDatabase) {
     }
 
     fun setAuthResponse(authResponse: AuthResponse): Completable {
-        return Completable.fromAction {
-            db.getAuthResponseDao().insert(authResponse)
-        }
+        return Completable.fromAction { db.getAuthResponseDao().insert(authResponse) }
     }
 
-    fun removeAuthResponse() {
-        db.getAuthResponseDao().delete()
+    fun removeAuthResponse(): Completable {
+        return Completable.fromAction { db.getAuthResponseDao().delete() }
     }
 }

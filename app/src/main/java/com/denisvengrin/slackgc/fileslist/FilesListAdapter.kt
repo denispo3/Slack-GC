@@ -1,25 +1,25 @@
-package com.denisvengrin.slackgc.adapter
+package com.denisvengrin.slackgc.fileslist
 
 
+import android.arch.paging.PagedListAdapter
 import android.content.Context
 import android.support.v4.content.ContextCompat
+import android.support.v7.util.DiffUtil
 import android.support.v7.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.load.model.LazyHeaders
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
-import com.bumptech.glide.request.RequestOptions
 import com.denisvengrin.slackgc.R
 import com.denisvengrin.slackgc.data.SlackFile
 import kotlinx.android.synthetic.main.fragment_files_list_item.view.*
 import java.text.SimpleDateFormat
 import java.util.*
 
-class FilesListAdapter(val context: Context, val token: String?)
+class FilesListAdapter( diffCallback: DiffUtil.ItemCallback<SlackFile>, val context: Context, val token: String?)
     : RecyclerView.Adapter<FilesListAdapter.ViewHolder>() {
 
     var selectionChangedUnit: (() -> Unit)? = null

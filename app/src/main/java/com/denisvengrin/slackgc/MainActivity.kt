@@ -3,8 +3,7 @@ package com.denisvengrin.slackgc
 import android.os.Bundle
 import android.support.v4.app.Fragment
 import android.support.v7.app.AppCompatActivity
-import android.util.Log
-import com.denisvengrin.slackgc.fragment.FilesListFragment
+import com.denisvengrin.slackgc.fileslist.FilesListFragment
 import com.denisvengrin.slackgc.fragment.LoginFragment
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable

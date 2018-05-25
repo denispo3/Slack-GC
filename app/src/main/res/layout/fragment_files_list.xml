@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.design.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -8,35 +9,125 @@
     tools:context=".MainActivity">
 
     <TextView
+        android:id="@+id/tvNoData"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:gravity="center"
         android:text="@string/no_files"
-        android:visibility="gone" />
+        android:visibility="gone"
+        tools:visibility="visible" />
 
     <android.support.v7.widget.RecyclerView
         android:id="@+id/rvFiles"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scrollbars="vertical"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
         android:clipToPadding="false"
-        android:paddingBottom="120dp" />
+        android:paddingBottom="120dp"
+        android:paddingTop="4dp"
+        android:scrollbars="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:listitem="@layout/fragment_files_list_item" />
+
+    <android.support.design.widget.AppBarLayout
+        android:id="@+id/appBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:expanded="false">
+
+        <android.support.design.widget.CollapsingToolbarLayout
+            android:id="@+id/collapsingToolbarLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:theme="@style/CollapsingToolbarStyle"
+            app:layout_scrollFlags="scroll|enterAlwaysCollapsed">
+
+            <LinearLayout
+                android:id="@+id/llCheckboxes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="4dp"
+                    android:text="@string/apply_filter"
+                    android:textColor="@android:color/white" />
+
+                <CheckBox
+                    android:id="@+id/chbSpaces"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/posts"
+                    android:textColor="@android:color/white" />
+
+                <CheckBox
+                    android:id="@+id/chbSnippets"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/snippets"
+                    android:textColor="@android:color/white" />
+
+                <CheckBox
+                    android:id="@+id/chbImages"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/image_files"
+                    android:textColor="@android:color/white" />
+
+                <CheckBox
+                    android:id="@+id/chbGdocs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/google_docs"
+                    android:textColor="@android:color/white" />
+
+                <CheckBox
+                    android:id="@+id/chbZips"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/zip_files"
+                    android:textColor="@android:color/white" />
+
+                <CheckBox
+                    android:id="@+id/chbPdfs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/pdf_files"
+                    android:textColor="@android:color/white" />
+            </LinearLayout>
+        </android.support.design.widget.CollapsingToolbarLayout>
+    </android.support.design.widget.AppBarLayout>
 
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleLarge"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
+        android:layout_gravity="center"
         android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         tools:visibility="visible" />
 
-    <Button
-        android:id="@+id/btnRemove"
-        android:layout_width="match_parent"
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/fabRemove"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="8dp"
-        android:text="@string/remove_selected_files"
-        android:textColor="@android:color/holo_red_light"
-        android:visibility="gone" />
-</RelativeLayout>
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_delete"
+        android:theme="@style/FabRemoveStyle"
+        android:visibility="gone"
+        app:fabSize="normal"
+        app:layout_anchor="@+id/rvFiles"
+        app:layout_anchorGravity="bottom|end"
+        tools:visibility="visible" />
+</android.support.design.widget.CoordinatorLayout>

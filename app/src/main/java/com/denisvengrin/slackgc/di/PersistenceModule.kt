@@ -3,7 +3,7 @@ package com.denisvengrin.slackgc.di
 import android.arch.persistence.room.Room
 import android.content.Context
 import com.denisvengrin.slackgc.db.AppDatabase
-import com.denisvengrin.slackgc.prefs.SlackStorage
+import com.denisvengrin.slackgc.storage.SlackStorage
 import dagger.Module
 import dagger.Provides
 import javax.inject.Singleton

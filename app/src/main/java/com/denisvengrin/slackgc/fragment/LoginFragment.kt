@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.support.v4.app.Fragment
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -16,7 +15,7 @@ import android.webkit.WebViewClient
 import com.denisvengrin.slackgc.BuildConfig
 import com.denisvengrin.slackgc.R
 import com.denisvengrin.slackgc.SlackGCApp
-import com.denisvengrin.slackgc.data.AuthResponse
+import com.denisvengrin.slackgc.fileslist.FilesListFragment
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.fragment_login.*
