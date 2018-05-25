@@ -18,7 +18,9 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
-        checkUserToken()
+        if (savedInstanceState == null) {
+            checkUserToken()
+        }
     }
 
     private fun checkUserToken() {

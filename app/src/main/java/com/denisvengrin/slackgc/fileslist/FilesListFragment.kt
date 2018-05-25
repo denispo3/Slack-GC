@@ -1,10 +1,11 @@
 package com.denisvengrin.slackgc.fileslist
 
 import android.app.ProgressDialog
+import android.arch.lifecycle.Observer
+import android.arch.lifecycle.ViewModelProviders
 import android.arch.paging.DataSource
 import android.arch.paging.PagedList
 import android.arch.paging.PositionalDataSource
-import android.arch.paging.RxPagedListBuilder
 import android.content.DialogInterface
 import android.os.Bundle
 import android.support.design.widget.AppBarLayout
@@ -17,27 +18,31 @@ import android.widget.CheckBox
 import android.widget.CompoundButton
 import com.denisvengrin.slackgc.R
 import com.denisvengrin.slackgc.SlackGCApp
+import com.denisvengrin.slackgc.common.ViewModelStatus
 import com.denisvengrin.slackgc.data.AuthResponse
 import com.denisvengrin.slackgc.data.FilesResponse
 import com.denisvengrin.slackgc.data.SlackFile
 import com.denisvengrin.slackgc.fragment.BaseFragment
 import com.denisvengrin.slackgc.fragment.LoginFragment
 import com.denisvengrin.slackgc.util.startVisibilityAnimation
-import io.reactivex.Observable
-import io.reactivex.Single
-import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
-import io.reactivex.subjects.PublishSubject
 import kotlinx.android.synthetic.main.fragment_files_list.*
-import java.util.concurrent.TimeUnit
 
 class FilesListFragment : BaseFragment() {
 
     private var mAdapter: FilesListAdapter? = null
-    private var mAuthResponse: AuthResponse? = null
 
-    private val mSelectedFileTypes = mutableSetOf<String>()
-    private val mFilesSearchSubject = PublishSubject.create<Int>()
+    private lateinit var mViewModel: FilesListViewModel
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val appComponent = SlackGCApp[activity!!].appComponent
+
+        mViewModel = ViewModelProviders.of(this,
+                FileListViewModelFactory(appComponent.api(), appComponent.storage()))
+                .get(FilesListViewModel::class.java)
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_files_list, container, false)
@@ -52,30 +57,24 @@ class FilesListFragment : BaseFragment() {
         fabRemove.setOnClickListener { removeSelectedFiles() }
 
         initTypeCheckBoxes()
-        initFilesSearchSubject()
-        mFilesSearchSubject.onNext(0)
+
+        mViewModel.getFilesResponseLiveData().observe(activity!!, Observer {
+            setProgressLoading(it?.status == ViewModelStatus.PROGRESS)
+
+            if (it?.status == ViewModelStatus.SUCCESS) {
+                initAdapter(it.result!!.first, it.result.second)
+            }
+        })
     }
 
-    private fun initFilesSearchSubject() {
-        mFilesSearchSubject
-                .debounce(300, TimeUnit.MILLISECONDS)
-                .observeOn(AndroidSchedulers.mainThread())
-                .doOnNext {
-                    setProgressLoading(true)
-                }
-                .observeOn(Schedulers.io())
-                .flatMapSingle {
-                    getFetchFilesObservable()
-                }
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
-                    setProgressLoading(false)
-                    initAdapter(it)
-                }, {
-                    it.printStackTrace()
-                    setProgressLoading(false)
-                })
-                .addToCompositeDisposable()
+    private fun removeSelectedFiles() {
+        val selectedFiles = mAdapter?.selectedItems ?: return
+
+        val progressDialog = getProgressDialog(selectedFiles.size)
+
+        progressDialog.show()
+
+        mViewModel.removeSelectedFiles(selectedFiles)
     }
 
     private fun initTypeCheckBoxes() {
@@ -91,12 +90,10 @@ class FilesListFragment : BaseFragment() {
             } ?: return@OnCheckedChangeListener
 
             if (isChecked) {
-                mSelectedFileTypes.add(selectedType)
+                mViewModel.addFilter(selectedType)
             } else {
-                mSelectedFileTypes.remove(selectedType)
+                mViewModel.removeFilter(selectedType)
             }
-
-            mFilesSearchSubject.onNext(0)
         }
 
         for (i in 0 until llCheckboxes.childCount) {
@@ -105,25 +102,6 @@ class FilesListFragment : BaseFragment() {
                 child.setOnCheckedChangeListener(listener)
             }
         }
-    }
-
-    private fun getFetchFilesObservable(): Single<FilesResponse> {
-        val appComponent = SlackGCApp[activity!!].appComponent
-        return appComponent.storage()
-                .getAuthResponse()
-                .flatMap {
-                    mAuthResponse = it
-
-                    val queryMap = mapOf(
-                            "page" to "1",
-                            "count" to "20",
-                            "user" to it.userId,
-                            "token" to it.token,
-                            "types" to mSelectedFileTypes.joinToString(",")
-                    )
-
-                    appComponent.api().getFiles(queryMap)
-                }
     }
 
     private fun getProgressDialog(maxProgress: Int) = ProgressDialog(activity).apply {
@@ -136,87 +114,6 @@ class FilesListFragment : BaseFragment() {
         })
     }
 
-    private fun removeSelectedFiles() {
-        val selectedFiles = mAdapter?.selectedItems ?: return
-
-        val progressDialog = getProgressDialog(selectedFiles.size)
-
-        progressDialog.show()
-
-        var successfulCount = 0
-        var failedCount = 0
-
-        val disposable = getDeleteFileObservable(selectedFiles)
-                .subscribeOn(Schedulers.single())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
-                    //Log.d(LOG_TAG, "onNext: ${Thread.currentThread().name}")
-                    val slackFile = it.first
-
-                    if (!slackFile.title.isNullOrEmpty()) {
-                        progressDialog.setMessage("Removing \"${slackFile.title}\"")
-                    }
-
-                    val filesResponse = it.second
-
-                    if (filesResponse != null) {
-                        if (filesResponse.ok) {
-                            successfulCount++
-
-                            mAdapter?.notifyRemoval(slackFile)
-                        } else {
-                            failedCount++
-                        }
-
-                        progressDialog.progress = successfulCount + failedCount
-                    }
-                }, {
-                    it.printStackTrace()
-                }, {
-                    checkRemoveBtnVisibility()
-                    progressDialog.dismiss()
-                    showResultsDialog(successfulCount, failedCount)
-                }).addToCompositeDisposable()
-
-        progressDialog.setOnDismissListener { disposable.dispose() }
-    }
-
-    /**
-     * @return an Observable, that emits [Pair] with:
-     * 1) [SlackFile] and empty [FilesResponse]  on first step to init progress
-     * 2) [SlackFile] and [FilesResponse] received from server
-     * 3) Empty [SlackFile] and [FilesResponse] with *success=false* in case of failed request
-     */
-    private fun getDeleteFileObservable(selectedFiles: List<SlackFile>) =
-            Observable.create<Pair<SlackFile, FilesResponse?>>({ emitter ->
-                val api = SlackGCApp[activity!!].appComponent.api()
-
-                val filesToRemove = ArrayList(selectedFiles)
-                for (file in filesToRemove) {
-                    if (!emitter.isDisposed) {
-                        emitter.onNext(file to null)
-                        //Log.d(LOG_TAG, "delete: ${file.id} ${Thread.currentThread().name}")
-
-                        val query = mapOf("file" to file.id,
-                                "token" to mAuthResponse?.token)
-
-                        val call = api.deleteFile(query = query)
-
-                        emitter.setCancellable { call.cancel() }
-
-                        try {
-                            val response = call.execute().body()
-
-                            emitter.onNext(file to response!!)
-                        } catch (t: Throwable) {
-                            t.printStackTrace()
-                            emitter.onNext(SlackFile() to FilesResponse().apply { ok = false })
-                        }
-                    }
-                }
-                emitter.onComplete()
-            })
-
     private fun showResultsDialog(successfulCount: Int, failedCount: Int) {
         AlertDialog.Builder(activity!!)
                 .setTitle(R.string.removal_completed)
@@ -225,18 +122,8 @@ class FilesListFragment : BaseFragment() {
                 .show()
     }
 
-    private val mDiffUtilCallback = object : DiffUtil.ItemCallback<SlackFile>() {
-        override fun areItemsTheSame(oldItem: SlackFile?, newItem: SlackFile?): Boolean {
-            return oldItem?.id == newItem?.id
-        }
-
-        override fun areContentsTheSame(oldItem: SlackFile?, newItem: SlackFile?): Boolean {
-            return oldItem == newItem
-        }
-    }
-
-    private fun initAdapter(response: FilesResponse) {
-        val filesList = response.files
+    private fun initAdapter(authResponse: AuthResponse, filesResponse: FilesResponse?) {
+        val filesList = filesResponse?.files
         if (filesList == null || filesList.isEmpty()) {
             tvNoData.visibility = View.VISIBLE
         } else {
@@ -260,7 +147,17 @@ class FilesListFragment : BaseFragment() {
             }
         }
 
-        mAdapter = FilesListAdapter(mDiffUtilCallback, activity!!, mAuthResponse?.token).apply {
+        val mDiffUtilCallback = object : DiffUtil.ItemCallback<SlackFile>() {
+            override fun areItemsTheSame(oldItem: SlackFile?, newItem: SlackFile?): Boolean {
+                return oldItem?.id == newItem?.id
+            }
+
+            override fun areContentsTheSame(oldItem: SlackFile?, newItem: SlackFile?): Boolean {
+                return oldItem == newItem
+            }
+        }
+
+        mAdapter = FilesListAdapter(mDiffUtilCallback, activity!!, authResponse.token).apply {
             data = filesList?.toMutableList()
             selectionChangedUnit = ::checkRemoveBtnVisibility
         }
