@@ -4,13 +4,13 @@ import android.arch.lifecycle.LiveData
 import android.arch.lifecycle.MutableLiveData
 import android.arch.lifecycle.ViewModel
 import com.denisvengrin.slackgc.common.ViewModelResult
+import com.denisvengrin.slackgc.common.ViewModelStatus
 import com.denisvengrin.slackgc.data.AuthResponse
 import com.denisvengrin.slackgc.data.FilesResponse
 import com.denisvengrin.slackgc.data.SlackFile
 import com.denisvengrin.slackgc.network.SlackApi
 import com.denisvengrin.slackgc.storage.SlackStorage
 import io.reactivex.Observable
-import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
@@ -25,9 +25,10 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
 
     private val mSelectedFileTypes = mutableSetOf<String>()
     private val mFilesSearchSubject = PublishSubject.create<Int>()
-    private var mFilesResponseLiveData: MutableLiveData<ViewModelResult<Pair<AuthResponse, FilesResponse>>>? = null
+    private var mFilesResponseLiveData: MutableLiveData<ViewModelResult<FilesListResult>>? = null
+    private val mRemoveFileLiveData: MutableLiveData<ViewModelResult<RemovalResult>> = MutableLiveData()
 
-    fun getFilesResponseLiveData(): LiveData<ViewModelResult<Pair<AuthResponse, FilesResponse>>> {
+    fun getFilesResponseLiveData(): LiveData<ViewModelResult<FilesListResult>> {
         if (mFilesResponseLiveData == null) {
             mFilesResponseLiveData = MutableLiveData()
             initAuthResponse()
@@ -76,7 +77,8 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                     api.getFiles(queryMap)
                 }
                 .subscribe({
-                    mFilesResponseLiveData?.postValue(ViewModelResult.success(mAuthResponse!! to it))
+                    val result = FilesListResult(mAuthResponse, it)
+                    mFilesResponseLiveData?.postValue(ViewModelResult.success(result))
                 }, {
                     it.printStackTrace()
                     mFilesResponseLiveData?.postValue(ViewModelResult.error(it))
@@ -86,43 +88,38 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
         mFilesSearchSubject.onNext(0)
     }
 
-    fun removeSelectedFiles(selectedFiles: List<SlackFile>) {
-/*        var successfulCount = 0
-        var failedCount = 0
+    fun getRemoveFilesLiveData() = mRemoveFileLiveData
 
-        val disposable = getDeleteFileObservable(selectedFiles)
+    fun removeSelectedFiles(selectedFiles: List<SlackFile>) {
+        var successfulCount = 0
+        var failedCount = 0
+        val totalCount = selectedFiles.size
+
+        getDeleteFileObservable(selectedFiles)
                 .subscribeOn(Schedulers.single())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
-                    //Log.d(LOG_TAG, "onNext: ${Thread.currentThread().name}")
                     val slackFile = it.first
-
-                    if (!slackFile.title.isNullOrEmpty()) {
-                        progressDialog.setMessage("Removing \"${slackFile.title}\"")
-                    }
-
                     val filesResponse = it.second
 
                     if (filesResponse != null) {
                         if (filesResponse.ok) {
                             successfulCount++
-
-                            mAdapter?.notifyRemoval(slackFile)
                         } else {
                             failedCount++
                         }
-
-                        progressDialog.progress = successfulCount + failedCount
                     }
+
+                    val removalResult = RemovalResult(slackFile, filesResponse, totalCount, successfulCount, failedCount)
+                    mRemoveFileLiveData.value = ViewModelResult(ViewModelStatus.PROGRESS, result = removalResult)
                 }, {
                     it.printStackTrace()
                 }, {
-                    checkRemoveBtnVisibility()
-                    progressDialog.dismiss()
-                    showResultsDialog(successfulCount, failedCount)
+                    mRemoveFileLiveData.value = ViewModelResult(ViewModelStatus.SUCCESS,
+                            result = RemovalResult(totalCount = totalCount,
+                                    successfulCount = successfulCount,
+                                    failedCount = failedCount))
                 }).addToCompositeDisposable()
-
-        progressDialog.setOnDismissListener { disposable.dispose() }*/
     }
 
     /**
@@ -146,8 +143,12 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                         emitter.setCancellable { call.cancel() }
 
                         try {
-                            val response = call.execute().body()
+                            //val response = call.execute().body()
+                            val response = FilesResponse().apply {
+                                this.ok = true
+                            }
 
+                            Thread.sleep(2000)
                             emitter.onNext(file to response!!)
                         } catch (t: Throwable) {
                             t.printStackTrace()
@@ -158,6 +159,9 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                 emitter.onComplete()
             })
 
+    fun clearTasks() {
+        mCompositeDisposable.clear()
+    }
 
     private fun Disposable.addToCompositeDisposable(): Disposable {
         mCompositeDisposable.add(this)

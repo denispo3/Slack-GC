@@ -18,6 +18,7 @@ import android.widget.CheckBox
 import android.widget.CompoundButton
 import com.denisvengrin.slackgc.R
 import com.denisvengrin.slackgc.SlackGCApp
+import com.denisvengrin.slackgc.common.ViewModelResult
 import com.denisvengrin.slackgc.common.ViewModelStatus
 import com.denisvengrin.slackgc.data.AuthResponse
 import com.denisvengrin.slackgc.data.FilesResponse
@@ -30,6 +31,8 @@ import kotlinx.android.synthetic.main.fragment_files_list.*
 
 class FilesListFragment : BaseFragment() {
 
+    private var progressDialog: ProgressDialog? = null
+
     private var mAdapter: FilesListAdapter? = null
 
     private lateinit var mViewModel: FilesListViewModel
@@ -37,11 +40,61 @@ class FilesListFragment : BaseFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        initAdapter(savedInstanceState)
+
         val appComponent = SlackGCApp[activity!!].appComponent
 
         mViewModel = ViewModelProviders.of(this,
                 FileListViewModelFactory(appComponent.api(), appComponent.storage()))
                 .get(FilesListViewModel::class.java)
+
+        mViewModel.getFilesResponseLiveData().observe(this, Observer {
+            processFilesListResult(it)
+        })
+
+        mViewModel.getRemoveFilesLiveData().observe(this, Observer {
+            processRemovalResult(it)
+        })
+    }
+
+    private fun processFilesListResult(it: ViewModelResult<FilesListResult>?) {
+        it ?: return
+
+        setProgressLoading(it.status == ViewModelStatus.PROGRESS)
+
+        if (it.status == ViewModelStatus.SUCCESS) {
+            setAdapterData(it.result!!.authResponse!!, it.result.filesResponse)
+        }
+    }
+
+    private fun processRemovalResult(it: ViewModelResult<RemovalResult>?) {
+        val removalResult = it?.result ?: return
+
+        val slackFile = removalResult.slackFile
+        val filesResponse = removalResult.filesResponse
+
+        when (it.status) {
+            ViewModelStatus.PROGRESS -> {
+                if (slackFile != null && !slackFile.title.isNullOrEmpty()) {
+                    if (progressDialog == null || !progressDialog!!.isShowing) {
+                        progressDialog = createProgressDialog(removalResult.totalCount)
+                    }
+                    progressDialog?.setMessage("Removing \"${slackFile.title}\"")
+                    if (filesResponse != null) {
+                        if (filesResponse.ok) {
+                            mAdapter?.notifyRemoval(slackFile)
+                        }
+
+                        progressDialog?.progress = removalResult.successfulCount + removalResult.failedCount
+                    }
+                }
+            }
+            ViewModelStatus.SUCCESS -> {
+                checkRemoveBtnVisibility()
+                progressDialog?.dismiss()
+                showResultsDialog(removalResult.successfulCount, removalResult.failedCount)
+            }
+        }
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
@@ -55,24 +108,44 @@ class FilesListFragment : BaseFragment() {
 
         rvFiles.layoutManager = LinearLayoutManager(activity)
         fabRemove.setOnClickListener { removeSelectedFiles() }
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
 
         initTypeCheckBoxes()
+    }
 
-        mViewModel.getFilesResponseLiveData().observe(activity!!, Observer {
-            setProgressLoading(it?.status == ViewModelStatus.PROGRESS)
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
 
-            if (it?.status == ViewModelStatus.SUCCESS) {
-                initAdapter(it.result!!.first, it.result.second)
-            }
-        })
+        val selectedFiles = mAdapter?.selectedFiles
+        if (selectedFiles != null) {
+            outState.putParcelableArrayList(ARG_SELECTED_FILES, ArrayList(selectedFiles))
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?, inflater: MenuInflater?) {
+        super.onCreateOptionsMenu(menu, inflater)
+
+        inflater?.inflate(R.menu.menu_files_list, menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
+        when (item?.itemId) {
+            R.id.item_logout -> logout()
+            R.id.item_filter -> toggleFilter()
+        }
+        return super.onOptionsItemSelected(item)
+    }
+
+    override fun onDestroyView() {
+        progressDialog?.dismiss()
+        super.onDestroyView()
     }
 
     private fun removeSelectedFiles() {
-        val selectedFiles = mAdapter?.selectedItems ?: return
-
-        val progressDialog = getProgressDialog(selectedFiles.size)
-
-        progressDialog.show()
+        val selectedFiles = mAdapter?.selectedFiles ?: return
 
         mViewModel.removeSelectedFiles(selectedFiles)
     }
@@ -104,14 +177,16 @@ class FilesListFragment : BaseFragment() {
         }
     }
 
-    private fun getProgressDialog(maxProgress: Int) = ProgressDialog(activity).apply {
-        max = maxProgress
+    private fun createProgressDialog(maxProgress: Int) = ProgressDialog(activity).apply {
         isIndeterminate = false
         setProgressStyle(ProgressDialog.STYLE_HORIZONTAL)
         setTitle(R.string.please_wait)
         setMessage("")
         setButton(DialogInterface.BUTTON_NEGATIVE, getString(android.R.string.cancel), { _, _ ->
+            mViewModel.clearTasks()
         })
+        max = maxProgress
+        show()
     }
 
     private fun showResultsDialog(successfulCount: Int, failedCount: Int) {
@@ -122,14 +197,7 @@ class FilesListFragment : BaseFragment() {
                 .show()
     }
 
-    private fun initAdapter(authResponse: AuthResponse, filesResponse: FilesResponse?) {
-        val filesList = filesResponse?.files
-        if (filesList == null || filesList.isEmpty()) {
-            tvNoData.visibility = View.VISIBLE
-        } else {
-            tvNoData.visibility = View.GONE
-        }
-
+    private fun initAdapter(savedInstanceState: Bundle?) {
         val pagedListConfig = PagedList.Config.Builder()
                 .setPageSize(10)
                 .setInitialLoadSizeHint(10)
@@ -157,8 +225,9 @@ class FilesListFragment : BaseFragment() {
             }
         }
 
-        mAdapter = FilesListAdapter(mDiffUtilCallback, activity!!, authResponse.token).apply {
-            data = filesList?.toMutableList()
+        val selectedFiles = savedInstanceState?.getParcelableArrayList<SlackFile>(ARG_SELECTED_FILES)?.toMutableList()
+                ?: mutableListOf()
+        mAdapter = FilesListAdapter(mDiffUtilCallback, activity!!, selectedFiles).apply {
             selectionChangedUnit = ::checkRemoveBtnVisibility
         }
 
@@ -167,31 +236,31 @@ class FilesListFragment : BaseFragment() {
                     mAdapter?.submitList(it)
                 }
                 .addToCompositeDisposable()*/
+    }
+
+    private fun setAdapterData(authResponse: AuthResponse, filesResponse: FilesResponse?) {
+        val filesList = filesResponse?.files
+        if (filesList == null || filesList.isEmpty()) {
+            tvNoData.visibility = View.VISIBLE
+        } else {
+            tvNoData.visibility = View.GONE
+        }
+
+        mAdapter?.token = authResponse.token
+        mAdapter?.data = filesList?.toMutableList()
+
+        checkRemoveBtnVisibility()
 
         rvFiles.adapter = mAdapter
     }
 
     private fun checkRemoveBtnVisibility() {
-        val hasSelectedItems = mAdapter?.selectedItems?.isNotEmpty() == true
+        val hasSelectedItems = mAdapter?.selectedFiles?.isNotEmpty() == true
         fabRemove.startVisibilityAnimation(if (hasSelectedItems) View.VISIBLE else View.GONE)
     }
 
     private fun setProgressLoading(load: Boolean) {
         progressBar.startVisibilityAnimation(if (load) View.VISIBLE else View.GONE)
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu?, inflater: MenuInflater?) {
-        super.onCreateOptionsMenu(menu, inflater)
-
-        inflater?.inflate(R.menu.menu_files_list, menu)
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
-        when (item?.itemId) {
-            R.id.item_logout -> logout()
-            R.id.item_filter -> toggleFilter()
-        }
-        return super.onOptionsItemSelected(item)
     }
 
     private fun toggleFilter() {
@@ -223,6 +292,8 @@ class FilesListFragment : BaseFragment() {
         const val FILE_TYPE_GDOCS = "gdocs"
         const val FILE_TYPE_ZIPS = "zips"
         const val FILE_TYPE_PDFS = "pdfs"
+
+        const val ARG_SELECTED_FILES = "arg_selected_files"
 
         const val LOG_TAG = "FilesListFragment"
 

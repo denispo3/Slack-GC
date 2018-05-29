@@ -19,16 +19,23 @@ import kotlinx.android.synthetic.main.fragment_files_list_item.view.*
 import java.text.SimpleDateFormat
 import java.util.*
 
-class FilesListAdapter( diffCallback: DiffUtil.ItemCallback<SlackFile>, val context: Context, val token: String?)
+class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
+                       val context: Context,
+                       var selectedFiles: MutableList<SlackFile>)
     : RecyclerView.Adapter<FilesListAdapter.ViewHolder>() {
 
+    var token: String? = null
     var selectionChangedUnit: (() -> Unit)? = null
     var data: MutableList<SlackFile>? = null
         set(value) {
             field = value
+            updateSelectedFiles()
             notifyDataSetChanged()
         }
-    val selectedItems = mutableListOf<SlackFile>()
+
+    private fun updateSelectedFiles() {
+        selectedFiles = data?.intersect(selectedFiles)?.toMutableList() ?: mutableListOf()
+    }
 
     private val mDateFormat = SimpleDateFormat("dd MMMM ''yy HH:mm", Locale.getDefault())
     private val mGlideHeaders = LazyHeaders.Builder()
@@ -54,7 +61,7 @@ class FilesListAdapter( diffCallback: DiffUtil.ItemCallback<SlackFile>, val cont
             selectionChangedUnit?.invoke()
         }
 
-        val backgroundRes = if (selectedItems.contains(item)) {
+        val backgroundRes = if (selectedFiles.contains(item)) {
             R.drawable.background_with_round_corners_filled
         } else {
             R.drawable.background_with_round_corners
@@ -77,17 +84,17 @@ class FilesListAdapter( diffCallback: DiffUtil.ItemCallback<SlackFile>, val cont
     fun notifyRemoval(item: SlackFile) {
         val index = data?.indexOf(item) ?: -1
         if (index >= 0) {
-            selectedItems.remove(item)
+            selectedFiles.remove(item)
             data?.removeAt(index)
             notifyItemRemoved(index)
         }
     }
 
     private fun toggleItem(item: SlackFile) {
-        if (selectedItems.contains(item)) {
-            selectedItems.remove(item)
+        if (selectedFiles.contains(item)) {
+            selectedFiles.remove(item)
         } else {
-            selectedItems.add(item)
+            selectedFiles.add(item)
         }
     }
 
