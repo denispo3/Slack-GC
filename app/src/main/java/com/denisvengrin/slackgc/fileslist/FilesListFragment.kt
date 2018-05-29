@@ -91,7 +91,9 @@ class FilesListFragment : BaseFragment() {
             }
             ViewModelStatus.SUCCESS -> {
                 checkRemoveBtnVisibility()
+                checkForEmptyData()
                 progressDialog?.dismiss()
+                mViewModel.clearRemoveFilesLiveData()
                 showResultsDialog(removalResult.successfulCount, removalResult.failedCount)
             }
         }
@@ -247,18 +249,23 @@ class FilesListFragment : BaseFragment() {
 
     private fun setAdapterData(authResponse: AuthResponse, filesResponse: FilesResponse?) {
         val filesList = filesResponse?.files
+
+        mAdapter?.token = authResponse.token
+        mAdapter?.data = filesList?.toMutableList()
+
+        checkForEmptyData()
+        checkRemoveBtnVisibility()
+
+        rvFiles.adapter = mAdapter
+    }
+
+    private fun checkForEmptyData() {
+        val filesList = mAdapter?.data
         if (filesList == null || filesList.isEmpty()) {
             tvNoData.visibility = View.VISIBLE
         } else {
             tvNoData.visibility = View.GONE
         }
-
-        mAdapter?.token = authResponse.token
-        mAdapter?.data = filesList?.toMutableList()
-
-        checkRemoveBtnVisibility()
-
-        rvFiles.adapter = mAdapter
     }
 
     private fun checkRemoveBtnVisibility() {

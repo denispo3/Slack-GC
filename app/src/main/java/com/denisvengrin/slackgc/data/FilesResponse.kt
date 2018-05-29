@@ -5,6 +5,6 @@ import com.denisvengrin.slackgc.data.SlackFile
 class FilesResponse {
 
     var ok: Boolean = false
-    var files: List<SlackFile>? = null
+    var files: MutableList<SlackFile>? = null
     var paging: PagingInfo? = null
 }

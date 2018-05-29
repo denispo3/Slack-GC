@@ -88,6 +88,13 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
         mFilesSearchSubject.onNext(0)
     }
 
+    /**
+     * If call during configuration change data won't be propagated
+     * */
+    fun clearRemoveFilesLiveData() {
+        mRemoveFileLiveData.value = null
+    }
+
     fun getRemoveFilesLiveData() = mRemoveFileLiveData
 
     fun removeSelectedFiles(selectedFiles: List<SlackFile>) {
@@ -112,6 +119,8 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
 
                     val removalResult = RemovalResult(slackFile, filesResponse, totalCount, successfulCount, failedCount)
                     mRemoveFileLiveData.value = ViewModelResult(ViewModelStatus.PROGRESS, result = removalResult)
+
+                    mFilesResponseLiveData?.value?.result?.filesResponse?.files?.remove(slackFile)
                 }, {
                     it.printStackTrace()
                 }, {
@@ -143,12 +152,11 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                         emitter.setCancellable { call.cancel() }
 
                         try {
-                            //val response = call.execute().body()
-                            val response = FilesResponse().apply {
+                            val response = call.execute().body()
+                            /*val response = FilesResponse().apply {
                                 this.ok = true
                             }
-
-                            Thread.sleep(2000)
+                            Thread.sleep(2000)*/
                             emitter.onNext(file to response!!)
                         } catch (t: Throwable) {
                             t.printStackTrace()
@@ -159,6 +167,9 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                 emitter.onComplete()
             })
 
+    /*
+    * Cancel all running tasks
+    * */
     fun clearTasks() {
         mCompositeDisposable.clear()
     }
