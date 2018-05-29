@@ -98,6 +98,15 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
         }
     }
 
+    fun selectAllFiles() {
+        if (selectedFiles.size == itemCount) {
+            selectedFiles.clear()
+        } else {
+            selectedFiles = data?.toMutableList() ?: mutableListOf()
+        }
+        notifyDataSetChanged()
+    }
+
     override fun getItemCount(): Int = data?.size ?: 0
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {

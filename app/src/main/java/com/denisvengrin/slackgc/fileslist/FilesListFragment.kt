@@ -116,15 +116,6 @@ class FilesListFragment : BaseFragment() {
         initTypeCheckBoxes()
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-
-        val selectedFiles = mAdapter?.selectedFiles
-        if (selectedFiles != null) {
-            outState.putParcelableArrayList(ARG_SELECTED_FILES, ArrayList(selectedFiles))
-        }
-    }
-
     override fun onCreateOptionsMenu(menu: Menu?, inflater: MenuInflater?) {
         super.onCreateOptionsMenu(menu, inflater)
 
@@ -135,13 +126,28 @@ class FilesListFragment : BaseFragment() {
         when (item?.itemId) {
             R.id.item_logout -> logout()
             R.id.item_filter -> toggleFilter()
+            R.id.item_select_all -> selectAllFiles()
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+
+        val selectedFiles = mAdapter?.selectedFiles
+        if (selectedFiles != null) {
+            outState.putParcelableArrayList(ARG_SELECTED_FILES, ArrayList(selectedFiles))
+        }
     }
 
     override fun onDestroyView() {
         progressDialog?.dismiss()
         super.onDestroyView()
+    }
+
+    private fun selectAllFiles() {
+        mAdapter?.selectAllFiles()
+        checkRemoveBtnVisibility()
     }
 
     private fun removeSelectedFiles() {
@@ -186,6 +192,7 @@ class FilesListFragment : BaseFragment() {
             mViewModel.clearTasks()
         })
         max = maxProgress
+        setCancelable(false)
         show()
     }
 
