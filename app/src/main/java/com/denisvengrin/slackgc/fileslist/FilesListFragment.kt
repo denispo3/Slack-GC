@@ -110,11 +110,6 @@ class FilesListFragment : BaseFragment() {
 
         rvFiles.layoutManager = LinearLayoutManager(activity)
         fabRemove.setOnClickListener { removeSelectedFiles() }
-    }
-
-    override fun onViewStateRestored(savedInstanceState: Bundle?) {
-        super.onViewStateRestored(savedInstanceState)
-
         initTypeCheckBoxes()
     }
 

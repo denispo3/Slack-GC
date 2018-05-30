@@ -3,6 +3,8 @@ package com.denisvengrin.slackgc.fileslist
 import android.arch.lifecycle.LiveData
 import android.arch.lifecycle.MutableLiveData
 import android.arch.lifecycle.ViewModel
+import android.util.Log
+import com.denisvengrin.slackgc.common.ReplayLiveData
 import com.denisvengrin.slackgc.common.ViewModelResult
 import com.denisvengrin.slackgc.common.ViewModelStatus
 import com.denisvengrin.slackgc.data.AuthResponse
@@ -24,9 +26,9 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
     private val mCompositeDisposable: CompositeDisposable = CompositeDisposable()
 
     private val mSelectedFileTypes = mutableSetOf<String>()
-    private val mFilesSearchSubject = PublishSubject.create<Int>()
+    private val mFilesSearchSubject = PublishSubject.create<String>()
     private var mFilesResponseLiveData: MutableLiveData<ViewModelResult<FilesListResult>>? = null
-    private val mRemoveFileLiveData: MutableLiveData<ViewModelResult<RemovalResult>> = MutableLiveData()
+    private val mRemoveFileLiveData: MutableLiveData<ViewModelResult<RemovalResult>> = ReplayLiveData()
 
     fun getFilesResponseLiveData(): LiveData<ViewModelResult<FilesListResult>> {
         if (mFilesResponseLiveData == null) {
@@ -38,12 +40,12 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
 
     fun addFilter(filter: String) {
         mSelectedFileTypes.add(filter)
-        mFilesSearchSubject.onNext(0)
+        pushFilesSearch()
     }
 
     fun removeFilter(filter: String) {
         mSelectedFileTypes.remove(filter)
-        mFilesSearchSubject.onNext(0)
+        pushFilesSearch()
     }
 
     private fun initAuthResponse() {
@@ -61,17 +63,18 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
 
     private fun initFilesSearchSubject() {
         mFilesSearchSubject
-                .debounce(300, TimeUnit.MILLISECONDS)
+                .distinctUntilChanged()
+                .debounce(500, TimeUnit.MILLISECONDS)
                 .doOnNext {
                     mFilesResponseLiveData?.postValue(ViewModelResult.progress())
                 }
-                .flatMapSingle {
+                .flatMapSingle { selectedTypes ->
                     val queryMap = mapOf(
                             "page" to "1",
                             "count" to "20",
                             "user" to mAuthResponse?.userId,
                             "token" to mAuthResponse?.token,
-                            "types" to mSelectedFileTypes.joinToString(",")
+                            "types" to selectedTypes
                     )
 
                     api.getFiles(queryMap)
@@ -85,14 +88,18 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                 })
                 .addToCompositeDisposable()
 
-        mFilesSearchSubject.onNext(0)
+        pushFilesSearch()
+    }
+
+    private fun pushFilesSearch() {
+        mFilesSearchSubject.onNext(mSelectedFileTypes.joinToString(","))
     }
 
     /**
      * If call during configuration change data won't be propagated
      * */
     fun clearRemoveFilesLiveData() {
-        mRemoveFileLiveData.value = null
+        mRemoveFileLiveData.setValue(null)
     }
 
     fun getRemoveFilesLiveData() = mRemoveFileLiveData
@@ -118,16 +125,17 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                     }
 
                     val removalResult = RemovalResult(slackFile, filesResponse, totalCount, successfulCount, failedCount)
-                    mRemoveFileLiveData.value = ViewModelResult(ViewModelStatus.PROGRESS, result = removalResult)
+                    val viewModelResult = ViewModelResult(ViewModelStatus.PROGRESS, result = removalResult)
+                    mRemoveFileLiveData.setValue(viewModelResult)
 
                     mFilesResponseLiveData?.value?.result?.filesResponse?.files?.remove(slackFile)
                 }, {
                     it.printStackTrace()
                 }, {
-                    mRemoveFileLiveData.value = ViewModelResult(ViewModelStatus.SUCCESS,
+                    mRemoveFileLiveData.setValue(ViewModelResult(ViewModelStatus.SUCCESS,
                             result = RemovalResult(totalCount = totalCount,
                                     successfulCount = successfulCount,
-                                    failedCount = failedCount))
+                                    failedCount = failedCount)))
                 }).addToCompositeDisposable()
     }
 
@@ -156,7 +164,7 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                             /*val response = FilesResponse().apply {
                                 this.ok = true
                             }
-                            Thread.sleep(2000)*/
+                            Thread.sleep(1000)*/
                             emitter.onNext(file to response!!)
                         } catch (t: Throwable) {
                             t.printStackTrace()
