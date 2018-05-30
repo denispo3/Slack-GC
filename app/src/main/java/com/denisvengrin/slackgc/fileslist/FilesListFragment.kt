@@ -6,6 +6,7 @@ import android.arch.lifecycle.ViewModelProviders
 import android.arch.paging.DataSource
 import android.arch.paging.PagedList
 import android.arch.paging.PositionalDataSource
+import android.arch.paging.RxPagedListBuilder
 import android.content.DialogInterface
 import android.os.Bundle
 import android.support.design.widget.AppBarLayout
@@ -63,7 +64,8 @@ class FilesListFragment : BaseFragment() {
         setProgressLoading(it.status == ViewModelStatus.PROGRESS)
 
         if (it.status == ViewModelStatus.SUCCESS) {
-            setAdapterData(it.result!!.authResponse!!, it.result.filesResponse)
+            mAdapter?.token = it.result?.authResponse?.token
+            mAdapter?.submitList(it.result?.pagedList)
         }
     }
 
@@ -109,6 +111,8 @@ class FilesListFragment : BaseFragment() {
         setHasOptionsMenu(true)
 
         rvFiles.layoutManager = LinearLayoutManager(activity)
+        rvFiles.adapter = mAdapter
+
         fabRemove.setOnClickListener { removeSelectedFiles() }
         initTypeCheckBoxes()
     }
@@ -202,24 +206,7 @@ class FilesListFragment : BaseFragment() {
     }
 
     private fun initAdapter(savedInstanceState: Bundle?) {
-        val pagedListConfig = PagedList.Config.Builder()
-                .setPageSize(10)
-                .setInitialLoadSizeHint(10)
-                .build()
-
-        val factory = object : DataSource.Factory<Int, SlackFile>() {
-            override fun create(): DataSource<Int, SlackFile> {
-                return object : PositionalDataSource<SlackFile>() {
-                    override fun loadRange(params: LoadRangeParams, callback: LoadRangeCallback<SlackFile>) {
-                    }
-
-                    override fun loadInitial(params: LoadInitialParams, callback: LoadInitialCallback<SlackFile>) {
-                    }
-                }
-            }
-        }
-
-        val mDiffUtilCallback = object : DiffUtil.ItemCallback<SlackFile>() {
+        val diffCallback = object : DiffUtil.ItemCallback<SlackFile>() {
             override fun areItemsTheSame(oldItem: SlackFile?, newItem: SlackFile?): Boolean {
                 return oldItem?.id == newItem?.id
             }
@@ -231,32 +218,18 @@ class FilesListFragment : BaseFragment() {
 
         val selectedFiles = savedInstanceState?.getParcelableArrayList<SlackFile>(ARG_SELECTED_FILES)?.toMutableList()
                 ?: mutableListOf()
-        mAdapter = FilesListAdapter(mDiffUtilCallback, activity!!, selectedFiles).apply {
+        mAdapter = FilesListAdapter(diffCallback, activity!!, selectedFiles).apply {
             selectionChangedUnit = ::checkRemoveBtnVisibility
+            currentListChangedUnit = {
+                checkForEmptyData()
+                checkRemoveBtnVisibility()
+            }
         }
-
-        /*RxPagedListBuilder(factory, pagedListConfig).buildObservable()
-                .subscribe {
-                    mAdapter?.submitList(it)
-                }
-                .addToCompositeDisposable()*/
-    }
-
-    private fun setAdapterData(authResponse: AuthResponse, filesResponse: FilesResponse?) {
-        val filesList = filesResponse?.files
-
-        mAdapter?.token = authResponse.token
-        mAdapter?.data = filesList?.toMutableList()
-
-        checkForEmptyData()
-        checkRemoveBtnVisibility()
-
-        rvFiles.adapter = mAdapter
     }
 
     private fun checkForEmptyData() {
-        val filesList = mAdapter?.data
-        if (filesList == null || filesList.isEmpty()) {
+        val count = mAdapter?.itemCount ?: 0
+        if (count == 0) {
             tvNoData.visibility = View.VISIBLE
         } else {
             tvNoData.visibility = View.GONE

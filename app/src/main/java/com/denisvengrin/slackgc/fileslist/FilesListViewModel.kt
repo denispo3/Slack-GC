@@ -3,7 +3,10 @@ package com.denisvengrin.slackgc.fileslist
 import android.arch.lifecycle.LiveData
 import android.arch.lifecycle.MutableLiveData
 import android.arch.lifecycle.ViewModel
-import android.util.Log
+import android.arch.paging.DataSource
+import android.arch.paging.PagedList
+import android.arch.paging.PositionalDataSource
+import android.arch.paging.RxPagedListBuilder
 import com.denisvengrin.slackgc.common.ReplayLiveData
 import com.denisvengrin.slackgc.common.ViewModelResult
 import com.denisvengrin.slackgc.common.ViewModelStatus
@@ -71,7 +74,7 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                 .flatMapSingle { selectedTypes ->
                     val queryMap = mapOf(
                             "page" to "1",
-                            "count" to "20",
+                            "count" to DEFAULT_PAGE_SIZE.toString(),
                             "user" to mAuthResponse?.userId,
                             "token" to mAuthResponse?.token,
                             "types" to selectedTypes
@@ -80,8 +83,7 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                     api.getFiles(queryMap)
                 }
                 .subscribe({
-                    val result = FilesListResult(mAuthResponse, it)
-                    mFilesResponseLiveData?.postValue(ViewModelResult.success(result))
+                    loadAdapterPages(it)
                 }, {
                     it.printStackTrace()
                     mFilesResponseLiveData?.postValue(ViewModelResult.error(it))
@@ -93,6 +95,36 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
 
     private fun pushFilesSearch() {
         mFilesSearchSubject.onNext(mSelectedFileTypes.joinToString(","))
+    }
+
+    private fun loadAdapterPages(filesResponse: FilesResponse?) {
+        val pagedListConfig = PagedList.Config.Builder()
+                .setPageSize(DEFAULT_PAGE_SIZE)
+                .setInitialLoadSizeHint(DEFAULT_PAGE_SIZE)
+                .build()
+
+        val factory = object : DataSource.Factory<Int, SlackFile>() {
+            override fun create(): DataSource<Int, SlackFile> {
+                return object : PositionalDataSource<SlackFile>() {
+                    override fun loadRange(params: LoadRangeParams, callback: LoadRangeCallback<SlackFile>) {
+                    }
+
+                    override fun loadInitial(params: LoadInitialParams, callback: LoadInitialCallback<SlackFile>) {
+                        val filesList = filesResponse?.files ?: listOf<SlackFile>()
+                        val totalPages = filesResponse?.paging?.total ?: 1
+
+                        callback.onResult(filesList, 0, totalPages)
+                    }
+                }
+            }
+        }
+
+        RxPagedListBuilder(factory, pagedListConfig).buildObservable()
+                .subscribe {
+                    val result = FilesListResult(mAuthResponse, it)
+                    mFilesResponseLiveData?.postValue(ViewModelResult.success(result))
+                }
+                .addToCompositeDisposable()
     }
 
     /**
@@ -128,7 +160,7 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                     val viewModelResult = ViewModelResult(ViewModelStatus.PROGRESS, result = removalResult)
                     mRemoveFileLiveData.setValue(viewModelResult)
 
-                    mFilesResponseLiveData?.value?.result?.filesResponse?.files?.remove(slackFile)
+                    //mFilesResponseLiveData?.value?.result?.filesResponse?.files?.remove(slackFile)
                 }, {
                     it.printStackTrace()
                 }, {
@@ -190,5 +222,9 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
     override fun onCleared() {
         super.onCleared()
         mCompositeDisposable.clear()
+    }
+
+    companion object {
+        const val DEFAULT_PAGE_SIZE = 10
     }
 }

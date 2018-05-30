@@ -1,6 +1,7 @@
 package com.denisvengrin.slackgc.fileslist
 
 
+import android.arch.paging.PagedList
 import android.arch.paging.PagedListAdapter
 import android.content.Context
 import android.support.v4.content.ContextCompat
@@ -10,9 +11,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.bumptech.glide.Glide
+import com.bumptech.glide.RequestBuilder
 import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.load.model.LazyHeaders
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
+import com.bumptech.glide.request.RequestOptions
 import com.denisvengrin.slackgc.R
 import com.denisvengrin.slackgc.data.SlackFile
 import kotlinx.android.synthetic.main.fragment_files_list_item.view.*
@@ -22,20 +25,11 @@ import java.util.*
 class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
                        val context: Context,
                        var selectedFiles: MutableList<SlackFile>)
-    : RecyclerView.Adapter<FilesListAdapter.ViewHolder>() {
+    : PagedListAdapter<SlackFile, FilesListAdapter.ViewHolder>(diffCallback) {
 
     var token: String? = null
     var selectionChangedUnit: (() -> Unit)? = null
-    var data: MutableList<SlackFile>? = null
-        set(value) {
-            field = value
-            updateSelectedFiles()
-            notifyDataSetChanged()
-        }
-
-    private fun updateSelectedFiles() {
-        selectedFiles = data?.intersect(selectedFiles)?.toMutableList() ?: mutableListOf()
-    }
+    var currentListChangedUnit: (() -> Unit)? = null
 
     private val mDateFormat = SimpleDateFormat("dd MMMM ''yy HH:mm", Locale.getDefault())
     private val mGlideHeaders = LazyHeaders.Builder()
@@ -48,17 +42,46 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
         return ViewHolder(view)
     }
 
+    override fun onCurrentListChanged(currentList: PagedList<SlackFile>?) {
+        super.onCurrentListChanged(currentList)
+        currentListChangedUnit?.invoke()
+        updateSelectedFiles()
+    }
+
+    private fun updateSelectedFiles() {
+        selectedFiles = currentList?.intersect(selectedFiles)?.toMutableList() ?: mutableListOf()
+    }
+
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val item = data?.get(position) ?: return
+        val item = getItem(position)
 
-        holder.tvTitle.text = item.title
-        holder.tvContent.text = mDateFormat.format(Date(item.created * 1000))
+        if (item == null) {
+            holder.tvTitle.text = "Loading..."
+            holder.tvContent.text = null
+            holder.llRootContainer.setOnClickListener(null)
 
-        holder.llRootContainer.setOnClickListener {
-            toggleItem(item)
-            notifyItemChanged(holder.adapterPosition)
+        } else {
+            holder.tvTitle.text = item.title
+            holder.tvContent.text = mDateFormat.format(Date(item.created * 1000))
 
-            selectionChangedUnit?.invoke()
+            holder.llRootContainer.setOnClickListener {
+                toggleItem(item)
+                notifyItemChanged(holder.adapterPosition)
+
+                selectionChangedUnit?.invoke()
+            }
+        }
+
+        val iconImageUrl = item?.thumb
+        if (iconImageUrl.isNullOrEmpty()) {
+            holder.ivPicture.visibility = View.GONE
+        } else {
+            holder.ivPicture.visibility = View.VISIBLE
+            val url = GlideUrl(iconImageUrl, mGlideHeaders)
+            Glide.with(context).load(url)
+                    .apply(RequestOptions().error(R.drawable.ic_image))
+                    .transition(DrawableTransitionOptions().crossFade())
+                    .into(holder.ivPicture)
         }
 
         val backgroundRes = if (selectedFiles.contains(item)) {
@@ -69,23 +92,13 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
         val background = ContextCompat.getDrawable(context, backgroundRes)
 
         holder.llRootContainer.background = background
-
-        if (item.thumb.isNullOrEmpty()) {
-            holder.ivPicture.visibility = View.GONE
-        } else {
-            holder.ivPicture.visibility = View.VISIBLE
-            val url = GlideUrl(item.thumb, mGlideHeaders)
-            Glide.with(context).load(url)
-                    .transition(DrawableTransitionOptions().crossFade())
-                    .into(holder.ivPicture)
-        }
     }
 
     fun notifyRemoval(item: SlackFile) {
-        val index = data?.indexOf(item) ?: -1
+        val index = currentList?.indexOf(item) ?: -1
         if (index >= 0) {
             selectedFiles.remove(item)
-            data?.removeAt(index)
+            currentList?.removeAt(index)
             notifyItemRemoved(index)
         }
     }
@@ -102,12 +115,10 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
         if (selectedFiles.size == itemCount) {
             selectedFiles.clear()
         } else {
-            selectedFiles = data?.toMutableList() ?: mutableListOf()
+            selectedFiles = currentList ?: mutableListOf()
         }
         notifyDataSetChanged()
     }
-
-    override fun getItemCount(): Int = data?.size ?: 0
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvTitle = view.tvTitle
