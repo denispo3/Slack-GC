@@ -56,10 +56,10 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
         val item = getItem(position)
 
         if (item == null) {
-            holder.tvTitle.text = "Loading..."
+            holder.tvTitle.text = context.getString(R.string.loading)
             holder.tvContent.text = null
             holder.llRootContainer.setOnClickListener(null)
-
+            holder.ivPicture.visibility = View.INVISIBLE
         } else {
             holder.tvTitle.text = item.title
             holder.tvContent.text = mDateFormat.format(Date(item.created * 1000))
@@ -70,18 +70,18 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
 
                 selectionChangedUnit?.invoke()
             }
-        }
 
-        val iconImageUrl = item?.thumb
-        if (iconImageUrl.isNullOrEmpty()) {
-            holder.ivPicture.visibility = View.GONE
-        } else {
-            holder.ivPicture.visibility = View.VISIBLE
-            val url = GlideUrl(iconImageUrl, mGlideHeaders)
-            Glide.with(context).load(url)
-                    .apply(RequestOptions().error(R.drawable.ic_image))
-                    .transition(DrawableTransitionOptions().crossFade())
-                    .into(holder.ivPicture)
+            val iconImageUrl = item.thumb
+            if (iconImageUrl.isNullOrEmpty()) {
+                holder.ivPicture.visibility = View.GONE
+            } else {
+                holder.ivPicture.visibility = View.VISIBLE
+                val url = GlideUrl(iconImageUrl, mGlideHeaders)
+                Glide.with(context).load(url)
+                        .apply(RequestOptions().error(R.drawable.ic_image))
+                        .transition(DrawableTransitionOptions().crossFade())
+                        .into(holder.ivPicture)
+            }
         }
 
         val backgroundRes = if (selectedFiles.contains(item)) {
@@ -115,7 +115,7 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
         if (selectedFiles.size == itemCount) {
             selectedFiles.clear()
         } else {
-            selectedFiles = currentList ?: mutableListOf()
+            selectedFiles = currentList?.toMutableList() ?: mutableListOf()
         }
         notifyDataSetChanged()
     }

@@ -3,10 +3,6 @@ package com.denisvengrin.slackgc.fileslist
 import android.app.ProgressDialog
 import android.arch.lifecycle.Observer
 import android.arch.lifecycle.ViewModelProviders
-import android.arch.paging.DataSource
-import android.arch.paging.PagedList
-import android.arch.paging.PositionalDataSource
-import android.arch.paging.RxPagedListBuilder
 import android.content.DialogInterface
 import android.os.Bundle
 import android.support.design.widget.AppBarLayout
@@ -21,8 +17,6 @@ import com.denisvengrin.slackgc.R
 import com.denisvengrin.slackgc.SlackGCApp
 import com.denisvengrin.slackgc.common.ViewModelResult
 import com.denisvengrin.slackgc.common.ViewModelStatus
-import com.denisvengrin.slackgc.data.AuthResponse
-import com.denisvengrin.slackgc.data.FilesResponse
 import com.denisvengrin.slackgc.data.SlackFile
 import com.denisvengrin.slackgc.fragment.BaseFragment
 import com.denisvengrin.slackgc.fragment.LoginFragment
@@ -190,7 +184,7 @@ class FilesListFragment : BaseFragment() {
         setTitle(R.string.please_wait)
         setMessage("")
         setButton(DialogInterface.BUTTON_NEGATIVE, getString(android.R.string.cancel), { _, _ ->
-            mViewModel.clearTasks()
+            mViewModel.cancelRemoval()
         })
         max = maxProgress
         setCancelable(false)
