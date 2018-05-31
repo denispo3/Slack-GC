@@ -29,7 +29,7 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
     private val mCompositeDisposable: CompositeDisposable = CompositeDisposable()
 
     private val mSelectedFileTypes = mutableSetOf<String>()
-    private val mFilesSearchSubject = PublishSubject.create<String>()
+    private val mFilesSearchSubject = PublishSubject.create<Pair<Boolean, String>>()
     private var mFilesResponseLiveData: MutableLiveData<ViewModelResult<FilesListResult>>? = null
     private val mRemoveFileLiveData: MutableLiveData<ViewModelResult<RemovalResult>> = ReplayLiveData()
 
@@ -67,7 +67,9 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
 
     private fun initFilesSearchSubject() {
         mFilesSearchSubject
-                .distinctUntilChanged()
+                .distinctUntilChanged { prevValue, newValue ->
+                    !newValue.first && (prevValue.second == newValue.second)
+                }
                 .debounce(500, TimeUnit.MILLISECONDS)
                 .observeOn(Schedulers.io())
                 .doOnNext {
@@ -87,8 +89,8 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                 .addToCompositeDisposable()
     }
 
-    private fun pushFilesSearch() {
-        mFilesSearchSubject.onNext(mSelectedFileTypes.joinToString(","))
+    private fun pushFilesSearch(force: Boolean = false) {
+        mFilesSearchSubject.onNext(force to mSelectedFileTypes.joinToString(","))
     }
 
     private fun getFilesLoadObservable(page: Int): Single<FilesResponse> {
@@ -109,7 +111,7 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                 .observeOn(Schedulers.io())
                 .flatMapSingle { chunkLoadParams ->
                     val pageToLoad = chunkLoadParams.params.key
-                    Log.d(LOG_TAG, "loadPortion: $pageToLoad ${chunkLoadParams.isNext}")
+                    Log.d(LOG_TAG, "loadPortion: page=$pageToLoad (next=${chunkLoadParams.isNext})")
 
                     getFilesLoadObservable(pageToLoad).map { chunkLoadParams to it }
                 }
@@ -123,7 +125,7 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                     } else {
                         if (pageToLoad <= STARTING_PAGE) null else pageToLoad - 1
                     }
-                    Log.d(LOG_TAG, "callback: $pageToLoad $neighborPage")
+                    Log.d(LOG_TAG, "callback for page $pageToLoad, next page is $neighborPage")
 
                     chunkLoadParams.callback.onResult(filesResponse.files ?: listOf(), neighborPage)
                 }, {
@@ -136,7 +138,7 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                     val pagingInfo = initialFilesResponse.paging!!
                     val filesList = initialFilesResponse.files ?: listOf<SlackFile>()
                     val totalCount = pagingInfo.total
-                    Log.d(LOG_TAG, "loadInitial: $totalCount")
+                    Log.d(LOG_TAG, "loadInitial: total=$totalCount")
 
                     val nextPage = if (pagingInfo.pages > STARTING_PAGE) STARTING_PAGE + 1 else null
                     callback.onResult(filesList, 0, totalCount, null, nextPage)
@@ -192,11 +194,11 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                     val removalResult = RemovalResult(slackFile, filesResponse, totalCount, successfulCount, failedCount)
                     val viewModelResult = ViewModelResult(ViewModelStatus.PROGRESS, result = removalResult)
                     mRemoveFileLiveData.setValue(viewModelResult)
-
-                    //mFilesResponseLiveData?.value?.result?.filesResponse?.files?.remove(slackFile)
                 }, {
                     it.printStackTrace()
                 }, {
+                    pushFilesSearch(force = true)
+
                     mRemoveFileLiveData.setValue(ViewModelResult(ViewModelStatus.SUCCESS,
                             result = RemovalResult(totalCount = totalCount,
                                     successfulCount = successfulCount,
@@ -225,11 +227,9 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
                         emitter.setCancellable { call.cancel() }
 
                         try {
-                            //val response = call.execute().body()
-                            val response = FilesResponse().apply {
-                                this.ok = true
-                            }
-                            Thread.sleep(1000)
+                            val response = call.execute().body()
+                            //val response = FilesResponse().apply { this.ok = true }
+                            //Thread.sleep(1000)
                             emitter.onNext(file to response!!)
                         } catch (t: Throwable) {
                             t.printStackTrace()

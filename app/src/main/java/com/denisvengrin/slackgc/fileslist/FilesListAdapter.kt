@@ -98,8 +98,6 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
         val index = currentList?.indexOf(item) ?: -1
         if (index >= 0) {
             selectedFiles.remove(item)
-            currentList?.removeAt(index)
-            notifyItemRemoved(index)
         }
     }
 
