@@ -32,9 +32,6 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
     var currentListChangedUnit: (() -> Unit)? = null
 
     private val mDateFormat = SimpleDateFormat("dd MMMM ''yy HH:mm", Locale.getDefault())
-    private val mGlideHeaders = LazyHeaders.Builder()
-            .addHeader("Authorization", "Bearer $token")
-            .build()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -76,7 +73,9 @@ class FilesListAdapter(diffCallback: DiffUtil.ItemCallback<SlackFile>,
                 holder.ivPicture.visibility = View.GONE
             } else {
                 holder.ivPicture.visibility = View.VISIBLE
-                val url = GlideUrl(iconImageUrl, mGlideHeaders)
+                val url = GlideUrl(iconImageUrl, {
+                    mapOf("Authorization" to "Bearer $token")
+                })
                 Glide.with(context).load(url)
                         .apply(RequestOptions().error(R.drawable.ic_image))
                         .transition(DrawableTransitionOptions().crossFade())

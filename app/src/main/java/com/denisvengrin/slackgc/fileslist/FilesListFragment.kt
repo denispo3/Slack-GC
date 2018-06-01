@@ -52,36 +52,36 @@ class FilesListFragment : BaseFragment() {
         })
     }
 
-    private fun processFilesListResult(it: ViewModelResult<FilesListResult>?) {
-        it ?: return
+    private fun processFilesListResult(filesResult: ViewModelResult<FilesListResult>?) {
+        filesResult ?: return
 
-        setProgressLoading(it.status == ViewModelStatus.PROGRESS)
+        setProgressLoading(filesResult.status == ViewModelStatus.PROGRESS)
 
-        if (it.status == ViewModelStatus.SUCCESS) {
-            mAdapter?.token = it.result?.authResponse?.token
-            mAdapter?.submitList(it.result?.pagedList)
+        if (filesResult.status == ViewModelStatus.SUCCESS) {
+            mAdapter?.token = filesResult.result?.authResponse?.token
+            mAdapter?.submitList(filesResult.result?.pagedList)
         }
     }
 
-    private fun processRemovalResult(it: ViewModelResult<RemovalResult>?) {
-        val removalResult = it?.result ?: return
+    private fun processRemovalResult(removalResult: ViewModelResult<RemovalResult>?) {
+        val result = removalResult?.result ?: return
 
-        val slackFile = removalResult.slackFile
-        val filesResponse = removalResult.filesResponse
+        val slackFile = result.slackFile
+        val filesResponse = result.filesResponse
 
-        when (it.status) {
+        when (removalResult.status) {
             ViewModelStatus.PROGRESS -> {
                 if (slackFile != null && !slackFile.title.isNullOrEmpty()) {
                     if (progressDialog == null || !progressDialog!!.isShowing) {
-                        progressDialog = createProgressDialog(removalResult.totalCount)
+                        progressDialog = createProgressDialog(result.totalCount)
                     }
-                    progressDialog?.setMessage("Removing \"${slackFile.title}\"")
+                    progressDialog?.setMessage(getString(R.string.removing_file_message, slackFile.title))
                     if (filesResponse != null) {
                         if (filesResponse.ok) {
                             mAdapter?.notifyRemoval(slackFile)
                         }
 
-                        progressDialog?.progress = removalResult.successfulCount + removalResult.failedCount
+                        progressDialog?.progress = result.successfulCount + result.failedCount
                     }
                 }
             }
@@ -90,7 +90,7 @@ class FilesListFragment : BaseFragment() {
                 checkForEmptyData()
                 progressDialog?.dismiss()
                 mViewModel.clearRemoveFilesLiveData()
-                showResultsDialog(removalResult.successfulCount, removalResult.failedCount)
+                showResultsDialog(result.successfulCount, result.failedCount)
             }
         }
     }

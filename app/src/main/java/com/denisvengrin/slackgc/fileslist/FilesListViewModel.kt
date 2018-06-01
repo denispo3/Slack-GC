@@ -163,7 +163,7 @@ class FilesListViewModel(val api: SlackApi, val storage: SlackStorage) : ViewMod
     }
 
     /**
-     * If call during configuration change data won't be propagated
+     * Call to stop data being propagated during configuration change
      * */
     fun clearRemoveFilesLiveData() {
         mRemoveFileLiveData.value = null
